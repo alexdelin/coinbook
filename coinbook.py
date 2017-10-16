@@ -33,21 +33,29 @@ class CoinBook(object):
         funds_details = self.redis.get('coinbook_funds')
         if not funds_details or reset_funds:
             if not initial_funds:
-                raise ValueError('You do not have any funds, set some '\
+                raise ValueError('You do not have any funds, set some '
                                  'with initial_funds to get started')
             self.set_funds(initial_funds)
 
     def get_funds(self):
         """Get the details of the current funds held by the user
+        returned in units of USD
         """
 
-        pass
+        funds_data = self.redis.get('coinbook_funds')
+        funds_amt = funds_data.get('amount')
+        return funds_amt
 
     def set_funds(self, amount):
         """Updates the amount of funds to the specified amount
+        Always must be done in units of USD
         """
 
-        pass
+        funds_data = {
+            "amount": amount,
+            "units": "USD"
+        }
+        self.redis.set('coinbook_funds', json.dumps(funds_data))
 
     def crawl(self):
         """Crawl the market to look for buying opportunities
@@ -83,13 +91,8 @@ class CoinBook(object):
 
     def make_trade(self, currency, amount, action):
         """Make a given trade with the provided parameters
-
-        returns None if no trade should be made
-        returns a dictionary if a trade should be made
-            the dictionary should include the keys:
-            * "currency" - the currency code
-            * "amount" - the amount in units of the currency
-            * "action" - one of ("buy, "sell")
+        Updates the amount of funds remaining, and
+        creates a new position for the new buy if needed
         """
 
         pass
@@ -97,6 +100,12 @@ class CoinBook(object):
     def evaluate_coin(self):
         """Evaluate a coin and determine if it should be
         purchased or not
+        returns None if no trade should be made
+        returns a dictionary if a trade should be made
+            the dictionary should include the keys:
+            * "currency" - the currency code
+            * "amount" - the amount in units of the currency
+            * "action" - one of ("buy, "sell")
         """
 
         raise NotImplementedError('This should be implemented with the '\
