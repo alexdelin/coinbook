@@ -11,7 +11,6 @@ Stores all required data in redis
 
 import json
 
-import requests
 import redis
 
 from bittrex import Bittrex, API_V2_0
@@ -39,7 +38,7 @@ class CoinBook(object):
 
     def get_funds(self):
         """Get the details of the current funds held by the user
-        returned in units of USD
+        returned in units of BTC
         """
 
         funds_data = self.redis.get('coinbook_funds')
@@ -48,12 +47,12 @@ class CoinBook(object):
 
     def set_funds(self, amount):
         """Updates the amount of funds to the specified amount
-        Always must be done in units of USD
+        Always must be done in units of BTC
         """
 
         funds_data = {
             "amount": amount,
-            "units": "USD"
+            "units": "BTC"
         }
         self.redis.set('coinbook_funds', json.dumps(funds_data))
 
@@ -75,19 +74,6 @@ class CoinBook(object):
                     currency=trade.get('currency'),
                     amount=trade.get('amount'),
                     action=trade.get('action'))
-
-    def update_btc_base(self):
-        """Update the base price of bitcoin.
-        This is necessary because we only deal with prices in USD
-        to avoid the effects of fluctuations in the price of BTC
-        on the valuations of other coins.
-        As all other coins are priced in units of BTC, we want to
-        make sure that we have the most up-to-date prices in USD
-        available
-        """
-
-        pass
-
 
     def make_trade(self, currency, amount, action):
         """Make a given trade with the provided parameters
