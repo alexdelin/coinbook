@@ -20,13 +20,34 @@ from bittrex import Bittrex, API_V2_0
 class CoinBook(object):
     """CoinBook"""
 
-    def __init__(self, redis_password=None):
+    def __init__(self, initial_funds=None, reset_funds=False,
+                 redis_password=None):
 
         super(CoinBook, self).__init__()
 
         self.bittrex_client = Bittrex(None, None, api_version=API_V2_0)
         self.redis = redis.StrictRedis(
             host='localhost', port=6379, db=0, password=redis_password)
+
+        # Set details for funds if they aren't already there
+        funds_details = self.redis.get('coinbook_funds')
+        if not funds_details or reset_funds:
+            if not initial_funds:
+                raise ValueError('You do not have any funds, set some '\
+                                 'with initial_funds to get started')
+            self.set_funds(initial_funds)
+
+    def get_funds(self):
+        """Get the details of the current funds held by the user
+        """
+
+        pass
+
+    def set_funds(self, amount):
+        """Updates the amount of funds to the specified amount
+        """
+
+        pass
 
     def crawl(self):
         """Crawl the market to look for buying opportunities
@@ -62,6 +83,13 @@ class CoinBook(object):
 
     def make_trade(self, currency, amount, action):
         """Make a given trade with the provided parameters
+
+        returns None if no trade should be made
+        returns a dictionary if a trade should be made
+            the dictionary should include the keys:
+            * "currency" - the currency code
+            * "amount" - the amount in units of the currency
+            * "action" - one of ("buy, "sell")
         """
 
         pass
