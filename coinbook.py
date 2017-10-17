@@ -100,10 +100,9 @@ class CoinBook(object):
             trade = self.evaluate_coin(coin)
             if trade:
 
-                self.make_trade(
+                self.make_buy(
                     currency=trade.get('currency'),
-                    amount=trade.get('amount'),
-                    action=trade.get('action'))
+                    amount=trade.get('amount'))
 
     def make_buy(self, currency, amount):
         """Make a given trade with the provided parameters
@@ -118,7 +117,7 @@ class CoinBook(object):
         m.update(currency)
         m.update(current_timestamp)
         pos_hash = m.hexdigest()[:20]
-        position_key = 'coinbook-position-{pos_hash}'.format(pos_hash)
+        position_key = 'coinbook-position-{pos_hash}'.format(pos_hash=pos_hash)
 
         position_data = {
             "currency": currency,
@@ -154,7 +153,7 @@ class CoinBook(object):
         self.set_funds(new_funds)
         pass
 
-    def evaluate_coin(self):
+    def evaluate_coin(self, coin):
         """Evaluate a coin and determine if it should be
         purchased or not
         returns None if no trade should be made
@@ -162,7 +161,6 @@ class CoinBook(object):
             the dictionary should include the keys:
             * "currency" - the currency code
             * "amount" - the amount in units of the currency
-            * "action" - one of ("buy, "sell")
         """
 
         raise NotImplementedError('This should be implemented with the '
