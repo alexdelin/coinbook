@@ -15,7 +15,7 @@ from datetime import datetime
 
 import redis
 
-from bittrex import Bittrex, API_V2_0
+from bittrex import Bittrex, API_V1_1
 
 
 class CoinBook(object):
@@ -26,7 +26,7 @@ class CoinBook(object):
 
         super(CoinBook, self).__init__()
 
-        self.bittrex_client = Bittrex(None, None, api_version=API_V2_0)
+        self.bittrex_client = Bittrex(None, None, api_version=API_V1_1)
         self.redis = redis.StrictRedis(
             host='localhost', port=6379, db=0, password=redis_password)
 
