@@ -31,7 +31,7 @@ class CoinBook(object):
             host='localhost', port=6379, db=0, password=redis_password)
 
         # Set details for funds if they aren't already there
-        funds_details = self.redis.get('coinbook_funds')
+        funds_details = self.redis.get('coinbook-funds')
         if not funds_details or reset_funds:
             if not initial_funds:
                 raise ValueError('You do not have any funds, set some '
@@ -43,7 +43,7 @@ class CoinBook(object):
         returned in units of BTC
         """
 
-        funds_data = self.redis.get('coinbook_funds')
+        funds_data = json.loads(self.redis.get('coinbook-funds'))
         funds_amt = funds_data.get('amount')
         return funds_amt
 
@@ -56,7 +56,7 @@ class CoinBook(object):
             "amount": amount,
             "units": "BTC"
         }
-        self.redis.set('coinbook_funds', json.dumps(funds_data))
+        self.redis.set('coinbook-funds', json.dumps(funds_data))
 
     def convert_units(self, amount, source_currency, target_currency):
         """Converts value of a given amount from one currency into
@@ -128,7 +128,7 @@ class CoinBook(object):
             "open_timestamp": current_timestamp
         }
 
-        self.redis.set(position_key, position_data)
+        self.redis.set(position_key, json.dumps(position_data))
 
         # Subtract the needed funds from our BTC balance
         current_funds = self.get_funds()
@@ -142,7 +142,7 @@ class CoinBook(object):
         """
 
         # Get position details
-        pos_data = self.redis.get(position_id)
+        pos_data = json.loads(self.redis.get(position_id))
         pos_currency = pos_data.get('currency')
         pos_amount = pos_data.get('amount')
 
@@ -202,7 +202,7 @@ class CoinBook(object):
         position_balances = []
 
         for position in all_positions:
-            pos_data = self.redis.get(position)
+            pos_data = json.loads(self.redis.get(position))
             pos_currency = pos_data.get('currency')
             pos_amount = pos_data.get('amount')
             pos_value_btc = self.convert_units(pos_amount, pos_currency, 'BTC')
