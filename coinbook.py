@@ -10,6 +10,8 @@ Stores all required data in redis
 """
 
 import json
+import hashlib
+from datetime import datetime
 
 import redis
 
@@ -56,6 +58,12 @@ class CoinBook(object):
         }
         self.redis.set('coinbook_funds', json.dumps(funds_data))
 
+    def convert_units(self, amount, source_currency, target_currency):
+        """Converts value of a given amount from one currency into
+        another. Uses the current market prices to do so
+        """
+        pass
+
     def crawl(self):
         """Crawl the market to look for buying opportunities
         """
@@ -75,12 +83,53 @@ class CoinBook(object):
                     amount=trade.get('amount'),
                     action=trade.get('action'))
 
-    def make_trade(self, currency, amount, action):
+    def make_buy(self, currency, amount):
         """Make a given trade with the provided parameters
         Updates the amount of funds remaining, and
         creates a new position for the new buy if needed
+        :amount is the amount in units of the desired currency
         """
 
+        # Create the new position
+        current_timestamp = datetime.now().isoformat()
+        m = hashlib.sha256()
+        m.update(currency)
+        m.update(current_timestamp)
+        pos_hash = m.hexdigest()[:20]
+        position_key = 'position-{pos_hash}'.format(pos_hash)
+
+        position_data = {
+            "currency": currency,
+            "amount": amount,
+            "open_timestamp": current_timestamp
+        }
+
+        self.redis.set(position_key, position_data)
+
+        # Subtract the needed funds from our BTC balance
+        current_funds = self.get_funds()
+        transaction_value_btc = self.convert_units(amount, currency, 'BTC')
+        new_funds = current_funds - transaction_value_btc
+        self.set_funds(new_funds)
+
+    def make_sell(self, position_id):
+        """Close out a given position.
+        The ID passed in is the redis key that holds the position
+        """
+
+        # Get position details
+        pos_data = self.redis.get(position_id)
+        pos_currency = pos_data.get('currency')
+        pos_amount = pos_data.get('amount')
+
+        # Delete existing position
+        self.redis.delete(position_id)
+
+        # Update funds data
+        pos_value_btc = self.convert_units(pos_amount, pos_currency, 'BTC')
+        current_funds = self.get_funds()
+        new_funds = current_funds + pos_value_btc
+        self.set_funds(new_funds)
         pass
 
     def evaluate_coin(self):
@@ -96,7 +145,6 @@ class CoinBook(object):
 
         raise NotImplementedError('This should be implemented with the '\
                                   'specific strategy you want to test')
-
 
     def evaluate_positions(self):
         """Evaluate all current positions to check if
