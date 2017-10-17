@@ -95,8 +95,6 @@ class CoinBook(object):
         summaries = self.bittrex_client.get_market_summaries()
         all_coins = summaries.get('result')
 
-        self.update_btc_base()
-
         for coin in all_coins:
 
             trade = self.evaluate_coin(coin)
