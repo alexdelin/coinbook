@@ -15,7 +15,7 @@ from datetime import datetime
 
 import redis
 
-from bittrex import Bittrex, API_V1_1
+from bittrex import Bittrex, API_V1_1, API_V2_0
 
 
 class CoinBook(object):
@@ -26,7 +26,8 @@ class CoinBook(object):
 
         super(CoinBook, self).__init__()
 
-        self.bittrex_client = Bittrex(None, None, api_version=API_V1_1)
+        self.bittrex_20_client = Bittrex(None, None, api_version=API_V2_0)
+        self.bittrex_11_client = Bittrex(None, None, api_version=API_V1_1)
         self.redis = redis.StrictRedis(
             host='localhost', port=6379, db=0, password=redis_password)
 
@@ -73,7 +74,7 @@ class CoinBook(object):
         if source_currency == 'BTC':
 
             ticker = 'BTC-{target}'.format(target=target_currency)
-            ticker_data = self.bittrex_client.get_ticker(ticker)
+            ticker_data = self.bittrex_11_client.get_ticker(ticker)
             exchange_rate = ticker_data.get('result', {}).get('Last')
             if not exchange_rate:
                 raise ValueError('Invalid Exchange Rate')
@@ -82,7 +83,7 @@ class CoinBook(object):
         else:
             # The Target currency is BTC
             ticker = 'BTC-{source}'.format(source=source_currency)
-            ticker_data = self.bittrex_client.get_ticker(ticker)
+            ticker_data = self.bittrex_11_client.get_ticker(ticker)
             exchange_rate = ticker_data.get('result', {}).get('Last')
             if not exchange_rate:
                 raise ValueError('Invalid Exchange Rate')
@@ -92,7 +93,7 @@ class CoinBook(object):
         """Crawl the market to look for buying opportunities
         """
 
-        summaries = self.bittrex_client.get_market_summaries()
+        summaries = self.bittrex_20_client.get_market_summaries()
         all_coins = summaries.get('result')
 
         for coin in all_coins:
