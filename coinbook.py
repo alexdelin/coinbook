@@ -62,7 +62,31 @@ class CoinBook(object):
         """Converts value of a given amount from one currency into
         another. Uses the current market prices to do so
         """
-        pass
+
+        # Validate arguments
+        if not isinstance(amount, float):
+            amount = float(amount)
+        if source_currency != 'BTC' and target_currency != 'BTC':
+            raise ValueError('One of the currencies must be Bitcoin')
+
+        # Get conversion Factor
+        if source_currency == 'BTC':
+
+            ticker = 'BTC-{target}'.format(target=target_currency)
+            ticker_data = self.bittrex_client.get_ticker(ticker)
+            exchange_rate = ticker_data.get('result', {}).get('Last')
+            if not exchange_rate:
+                raise ValueError('Invalid Exchange Rate')
+            return amount / exchange_rate
+
+        else:
+            # The Target currency is BTC
+            ticker = 'BTC-{source}'.format(source=source_currency)
+            ticker_data = self.bittrex_client.get_ticker(ticker)
+            exchange_rate = ticker_data.get('result', {}).get('Last')
+            if not exchange_rate:
+                raise ValueError('Invalid Exchange Rate')
+            return amount * exchange_rate
 
     def crawl(self):
         """Crawl the market to look for buying opportunities
