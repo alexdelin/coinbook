@@ -120,7 +120,7 @@ class CoinBook(object):
         m.update(currency)
         m.update(current_timestamp)
         pos_hash = m.hexdigest()[:20]
-        position_key = 'position-{pos_hash}'.format(pos_hash)
+        position_key = 'coinbook-position-{pos_hash}'.format(pos_hash)
 
         position_data = {
             "currency": currency,
@@ -167,12 +167,23 @@ class CoinBook(object):
             * "action" - one of ("buy, "sell")
         """
 
-        raise NotImplementedError('This should be implemented with the '\
+        raise NotImplementedError('This should be implemented with the '
                                   'specific strategy you want to test')
 
-    def evaluate_positions(self):
+    def evaluate_all_positions(self):
         """Evaluate all current positions to check if
         they should be held or closed out
+        """
+
+        all_positions = self.redis.keys(pattern='coinbook-position-*')
+
+        for position in all_positions:
+            self.evaluate_position(position)
+
+    def evaluate_position(self, position):
+        """Evaluate a single position currently held.
+        The position value passed in is the redis key
+        to get the position details
         """
 
         pass
@@ -180,6 +191,23 @@ class CoinBook(object):
     def get_total_balance(self):
         """Gets the total account balance across
         all held positions and funds
+        Returns an answer in units of BTC
         """
 
-        pass
+        # Get funds balance
+        funds_balance = self.get_funds()
+
+        # Get positions balance
+        all_positions = self.redis.keys(pattern='coinbook-position-*')
+        position_balances = []
+
+        for position in all_positions:
+            pos_data = self.redis.get(position)
+            pos_currency = pos_data.get('currency')
+            pos_amount = pos_data.get('amount')
+            pos_value_btc = self.convert_units(pos_amount, pos_currency, 'BTC')
+            position_balances.append(pos_value_btc)
+
+        # Get total balance
+        total_balance = funds_balance + sum(position_balances)
+        return total_balance
