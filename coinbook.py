@@ -21,30 +21,60 @@ from bittrex import Bittrex, API_V1_1, API_V2_0
 class CoinBook(object):
     """CoinBook"""
 
-    def __init__(self, initial_funds=None, reset_funds=False,
-                 redis_password=None):
+    def __init__(self, strategy_name='empty', initial_funds=None,
+                 reset_funds=False, redis_password=None):
 
         super(CoinBook, self).__init__()
 
         self.bittrex_20_client = Bittrex(None, None, api_version=API_V2_0)
         self.bittrex_11_client = Bittrex(None, None, api_version=API_V1_1)
+        self.strategy_name = strategy_name
         self.redis = redis.StrictRedis(
             host='localhost', port=6379, db=0, password=redis_password)
 
         # Set details for funds if they aren't already there
-        funds_details = self.redis.get('coinbook-funds')
+        funds_details = self.redis.get('coinbook-{strategy}-funds'.format(
+                                            strategy=self.strategy_name))
+
         if not funds_details or reset_funds:
             if not initial_funds:
                 raise ValueError('You do not have any funds, set some '
                                  'with initial_funds to get started')
+            # Try to clear out any existing redis keys, just to be safe
+            self.clear_redis_keys()
             self.set_funds(initial_funds)
+
+    def clear_redis_keys(self):
+        """Clear out any redis keys which appear to be owned by
+        the current strategy.
+        """
+
+        all_keys = self.redis.keys(
+            pattern='coinbook-{strategy}-*'.format(
+                        strategy=self.strategy_name))
+
+        for redis_key in all_keys:
+            self.redis.delete(redis_key)
+
+    def get_positions(self):
+        """Gets all currently open positions
+        """
+
+        all_positions = self.redis.keys(
+            pattern='coinbook-{strategy}-position-*'.format(
+                        strategy=self.strategy_name))
+
+        return all_positions
 
     def get_funds(self):
         """Get the details of the current funds held by the user
         returned in units of BTC
         """
 
-        funds_data = json.loads(self.redis.get('coinbook-funds'))
+        funds_data = json.loads(self.redis.get(
+                                'coinbook-{strategy}-funds'.format(
+                                    strategy=self.strategy_name)))
+
         funds_amt = funds_data.get('amount')
         return funds_amt
 
@@ -57,7 +87,10 @@ class CoinBook(object):
             "amount": amount,
             "units": "BTC"
         }
-        self.redis.set('coinbook-funds', json.dumps(funds_data))
+        self.redis.set(
+            'coinbook-{strategy}-funds'.format(
+                strategy=self.strategy_name),
+            json.dumps(funds_data))
 
     def convert_units(self, amount, source_currency, target_currency):
         """Converts value of a given amount from one currency into
@@ -97,10 +130,9 @@ class CoinBook(object):
         all_coins = summaries.get('result')
 
         for coin in all_coins:
-
             trade = self.evaluate_coin(coin)
-            if trade:
 
+            if trade:
                 self.make_buy(
                     currency=trade.get('currency'),
                     amount=trade.get('amount'))
@@ -118,7 +150,9 @@ class CoinBook(object):
         m.update(currency)
         m.update(current_timestamp)
         pos_hash = m.hexdigest()[:20]
-        position_key = 'coinbook-position-{pos_hash}'.format(pos_hash=pos_hash)
+        position_key = 'coinbook-{strategy}-position-{pos_hash}'.format(
+                            strategy=self.strategy_name,
+                            pos_hash=pos_hash)
 
         position_data = {
             "currency": currency,
@@ -172,7 +206,7 @@ class CoinBook(object):
         they should be held or closed out
         """
 
-        all_positions = self.redis.keys(pattern='coinbook-position-*')
+        all_positions = self.get_positions()
 
         for position in all_positions:
             self.evaluate_position(position)
@@ -183,7 +217,8 @@ class CoinBook(object):
         to get the position details
         """
 
-        pass
+        raise NotImplementedError('This should be implemented with the '
+                                  'specific strategy you want to test')
 
     def get_total_balance(self):
         """Gets the total account balance across
@@ -195,7 +230,8 @@ class CoinBook(object):
         funds_balance = self.get_funds()
 
         # Get positions balance
-        all_positions = self.redis.keys(pattern='coinbook-position-*')
+        all_positions = self.get_positions()
+
         position_balances = []
 
         for position in all_positions:
