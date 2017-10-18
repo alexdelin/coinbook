@@ -133,16 +133,18 @@ class CoinBook(object):
             trade = self.evaluate_coin(coin)
 
             if trade:
-                self.make_buy(
-                    currency=trade.get('currency'),
-                    amount=trade.get('amount'))
+                self.make_buy(trade=trade)
 
-    def make_buy(self, currency, amount):
+    def make_buy(self, trade):
         """Make a given trade with the provided parameters
         Updates the amount of funds remaining, and
         creates a new position for the new buy if needed
         :amount is the amount in units of the desired currency
         """
+
+        # Get basic needed elements
+        currency = trade.get('currency')
+        amount = trade.get('amount')
 
         # Create the new position
         current_timestamp = datetime.now().isoformat()
@@ -154,11 +156,8 @@ class CoinBook(object):
                             strategy=self.strategy_name,
                             pos_hash=pos_hash)
 
-        position_data = {
-            "currency": currency,
-            "amount": amount,
-            "open_timestamp": current_timestamp
-        }
+        position_data = trade
+        position_data.update({"open_timestamp": current_timestamp})
 
         self.redis.set(position_key, json.dumps(position_data))
 
@@ -193,9 +192,11 @@ class CoinBook(object):
         purchased or not
         returns None if no trade should be made
         returns a dictionary if a trade should be made
-            the dictionary should include the keys:
+            the dictionary should include at least these keys:
             * "currency" - the currency code
             * "amount" - the amount in units of the currency
+            In addition, you can include anything that you want
+            to use later on during evaluation of the position
         """
 
         raise NotImplementedError('This should be implemented with the '
@@ -209,7 +210,8 @@ class CoinBook(object):
         all_positions = self.get_positions()
 
         for position in all_positions:
-            self.evaluate_position(position)
+            position_data = json.loads(self.redis.get(position))
+            self.evaluate_position(position_data)
 
     def evaluate_position(self, position):
         """Evaluate a single position currently held.
@@ -244,3 +246,19 @@ class CoinBook(object):
         # Get total balance
         total_balance = funds_balance + sum(position_balances)
         return total_balance
+
+    def write_log(self, message):
+        """Write something to the log file for this strategy
+        """
+
+        full_log_message = '{timestamp} - {message}'.format(
+            timestamp=datetime.now().isoformat(),
+            message=message)
+
+        log_file = 'logs/{strategy}.log'.format(strategy=self.strategy_name)
+        with open(log_file, 'w+') as log_file_object:
+            log_file_object.write(full_log_message)
+
+
+
+
