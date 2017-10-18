@@ -145,6 +145,7 @@ class CoinBook(object):
         # Get basic needed elements
         currency = trade.get('currency')
         amount = trade.get('amount')
+        cost_basis = self.convert_units(amount, currency, 'BTC')
 
         # Create the new position
         current_timestamp = datetime.now().isoformat()
@@ -157,14 +158,16 @@ class CoinBook(object):
                             pos_hash=pos_hash)
 
         position_data = trade
-        position_data.update({"open_timestamp": current_timestamp})
+        position_data.update({
+            "open_timestamp": current_timestamp,
+            "cost_basis": cost_basis
+        })
 
         self.redis.set(position_key, json.dumps(position_data))
 
         # Subtract the needed funds from our BTC balance
         current_funds = self.get_funds()
-        transaction_value_btc = self.convert_units(amount, currency, 'BTC')
-        new_funds = current_funds - transaction_value_btc
+        new_funds = current_funds - cost_basis
         self.set_funds(new_funds)
 
     def make_sell(self, position_id):
@@ -211,12 +214,16 @@ class CoinBook(object):
 
         for position in all_positions:
             position_data = json.loads(self.redis.get(position))
-            self.evaluate_position(position_data)
+            position_action = self.evaluate_position(position_data)
+            if position_action:
+                self.make_sell(position)
 
     def evaluate_position(self, position):
         """Evaluate a single position currently held.
         The position value passed in is the redis key
         to get the position details
+        returns True if the position should be closed
+        returns False or None if the position should be kept
         """
 
         raise NotImplementedError('This should be implemented with the '
